@@ -65,11 +65,11 @@ for fld = 1:n_folders
         current_datetime = datetime(list_id{i},'InputFormat','yyyy.MM.dd.HH.mm.ss');
 
         if current_datetime > alert_state              % below 10% -> alert
-            if current_datetime < alarm_state      
-                tmp_label = 1;
-            else
-                tmp_label = 2;                          % below 1% -> alarm
-            end
+            %if current_datetime < alarm_state      
+            tmp_label = 1;
+            %else
+            %    tmp_label = 2;                          % below 1% -> alarm
+            %end
         else
             tmp_label = 0;                            % above 10% -> normal
         end
@@ -92,10 +92,9 @@ for fld = 1:n_folders
     end
     delete(h)
 end
-save set123_labels set123_labels
 
 
-%% Save balanced 2 CLASS (normal, alert) labels in wave format for audiostore
+%% Save balanced labels in wave format for audiostore
 labels = cell2mat(set123_labels(:,2));
 n_least_freq_class = sum(labels==1);
 
@@ -105,8 +104,8 @@ alert_data = set123_labels(labels==1,:);
 idx = randperm(length(normal_data),n_least_freq_class)';
 normal_select = normal_data(idx,:);
 
-ims_dataset = [normal_select;alert_data]; %...                        % file name
-        %       num2cell(zeros(n_least_freq_class,1));num2cell(ones(n_least_freq_class,1))};  % label
+ims_dataset = [normal_select;alert_data, ...                        % file name
+               zeros(n_least_freq_class);ones(n_least_freq_class)];  % label
 
 n = length(ims_dataset);
 
@@ -129,102 +128,6 @@ for i = 1:n
     h = waitbar(i/n,h,[['Done: ',num2str(i),'/',num2str(n)],'. Remaining time = ',char(esttime-(datetime("now")-datetime(s)))]);
 
 end
-delete(h)
+
 
 %%
-
-
-%% Augment class S2: alarm
-
-load('set123_labels.mat')
-
-augmenter = audioDataAugmenter( ...
-    "AugmentationMode","independent", ...
-    "AugmentationParameterSource","specify", ...
-    "ApplyTimeStretch",false, ...
-    "ApplyPitchShift",false, ...
-    "VolumeGain",0.1, ...
-    "SemitoneShiftRange",[-12 12], ...
-    "SNR",[10,15], ...
-    "TimeShift",0.2);
-
-labels = cell2mat(set123_labels(:,2));
-n_least_freq_class = sum(labels==1);
-n_aug = n_least_freq_class - sum(labels==2);
-
-alarm_idx = find(labels==2);
-
-alarm_data = set123_labels(labels==2,:);
-n_alarms = length(alarm_data);
-
-for i = 1:n_aug
-    
-    idx = randi(n_alarms);                            % random select alarm
-    
-    [y,fs] = audioread(['ims_wav_3class\',alarm_data{idx,1}]);
-
-    data = augment(augmenter,y,fs);
-    y_aug = data.Audio{1};
-
-    audiowrite(['ims_wav_3class\',alarm_data{idx,1}(1:end-4),'_aug.wav'],y_aug,20000);
-
-end
-
-ims_dataset_3class = [ims_dataset_3class,augmentet_alarms];
-
-%%
-
-for i = 1:n_alarms
-    
-    [y,fs] = audioread(['ims_wav_3class\',alarm_data{i,1}]);
-
-    audiowrite(['ims_alarm\',alarm_data{i,1}],y,20000);
-
-end
-
-%%
-figure
-melSpectrogram(y,fs)
-
-figure
-melSpectrogram(y_aug,fs)
-
-
-%% Save balanced 3 CLASS (normal, alert, alarm) labels in wave format for audiostore
-labels = cell2mat(set123_labels(:,2));
-n_least_freq_class = sum(labels==1);
-
-normal_data = set123_labels(labels==0,:);
-alert_data = set123_labels(labels==1,:);
-alarm_data = set123_labels(labels==2,:);
-
-idx = randperm(length(normal_data),n_least_freq_class)';
-normal_select = normal_data(idx,:);
-
-ims_dataset = [normal_select; alert_data; alarm_data]; %...                        % file name
-        %       num2cell(zeros(n_least_freq_class,1));num2cell(ones(n_least_freq_class,1))};  % label
-
-n = length(ims_dataset);
-
-h = waitbar(0, 'Starting');  % initiate waitbar display
-s = datetime("now");
-
-for i = 1:n
-
-    folder_name = ims_dataset{i,1}(5);
-    file_name = ims_dataset{i,1}(11:end);
-    channel = str2double(ims_dataset{i,1}(9));
-
-    data = table2array(readtable(['ims/',folder_name,'/',file_name(1:end-4)], 'FileType','text'));
-    y = data(:,channel);
-
-    audiowrite(['ims_wav_3class\',ims_dataset{i,1}],y,20000); % idea: all label to filename?
-
-    is = datetime("now")-datetime(s);
-    esttime = is * (n/i);
-    h = waitbar(i/n,h,[['Done: ',num2str(i),'/',num2str(n)],'. Remaining time = ',char(esttime-(datetime("now")-datetime(s)))]);
-
-end
-delete(h)
-
-
