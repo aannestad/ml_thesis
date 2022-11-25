@@ -22,7 +22,7 @@ lab = cell2mat(mx_finetune(:,2));
 %load tgb_finetune.mat
 %lab = cell2mat(tgb_finetune(:,2));
 
-ads.Labels = categorical(lab,[0,1,2],{'normal','alert','alarm'});
+ads.Labels = categorical(lab,[0,1],{'normal','alert'});
 summary(ads.Labels) % labelTable = countEachLabel(ads)
 
 %%
